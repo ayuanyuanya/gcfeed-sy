@@ -1,6 +1,9 @@
 package migration
 
 import (
+	infraaccount "GCFeed-sy/internal/infra/persistence/account"
+	infrafeed "GCFeed-sy/internal/infra/persistence/feed"
+	infravideo "GCFeed-sy/internal/infra/persistence/video"
 	"errors"
 	"time"
 
@@ -9,18 +12,26 @@ import (
 )
 
 func AutoMigrate(db *gorm.DB) error {
+	// 1.自动迁移表结构
 	err := autoMigrateModels(db)
 	if err != nil {
 		return err
 	}
-
-	return nil
+	// 2.为所有视频表补充一条统计数据
+	if err := infravideo.EnsureStats(db); err != nil {
+		return err
+	}
+	// 3.补充一条索引
+	err = infrafeed.EnsureTimelineIndex(db)
+	return err
 }
 
 func autoMigrateModels(db *gorm.DB) error {
 	var err error
 	for attempt := range 4 {
-		err = db.AutoMigrate()
+		err = db.AutoMigrate(
+			&infraaccount.UserModel{},
+		)
 		if err == nil {
 			return nil
 		}
